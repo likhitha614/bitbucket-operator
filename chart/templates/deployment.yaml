@@ -1,9 +1,12 @@
+{{- $app := printf "%s-bitbucket" .Values.resource.name -}}
+{{- $spec := dict }}
+{{- $_ := merge $spec .Values.resource.spec .Values.default -}}
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: {{ .Values.resource.name }}-hello
+  name: {{ $app }}
   labels:
-    app: {{ .Values.resource.name }}-hello
+    app: {{ $app }}
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
@@ -12,10 +15,63 @@ spec:
   template:
     metadata:
       labels:
-        resource: {{ .Values.resource.name }}
+        app: {{ .Values.resource.name }}
+        resource: {{ $app }}
     spec:
+{{- if $spec.nodeSelector }}
+      nodeSelector:
+{{ toYaml $spec.nodeSelector | indent 8 }}
+{{ end -}}
+{{- if $spec.tolerations }}
+      tolerations:
+{{ toYaml $spec.tolerations | indent 8 }}
+{{ end }}
       containers:
-      - name: hello
-        image: {{ .Values.image }}
-        ports:
-        - containerPort: 80
+        - name: bitbucket
+{{- with $spec.image }}
+          image: {{ .name }}:{{ .tag }}
+          imagePullPolicy: {{ .pullPolicy }}{{ end }}
+          ports:
+            - name: http
+              containerPort: 7990
+            - name: ssh
+              containerPort: 7999
+          envFrom:
+            - secretRef:
+                name: {{ $app }}-database-credentials
+            - configMapRef:
+                name: {{ $app }}
+          readinessProbe:
+            httpGet:
+              path: /status
+              port: 7990
+              scheme: HTTP
+            initialDelaySeconds: 3
+            timeoutSeconds: 2
+            periodSeconds: 5
+            successThreshold: 1
+            failureThreshold: 100
+          livenessProbe:
+            httpGet:
+              path: /status
+              port: 7990
+              scheme: HTTP
+            initialDelaySeconds: 3
+            timeoutSeconds: 2
+            periodSeconds: 5
+            successThreshold: 1
+            failureThreshold: 100
+          volumeMounts:
+            - name: bitbucket-home
+              mountPath: /var/atlassian/bitbucket
+          resources:
+{{ toYaml $spec.resources | indent 12 }}
+      volumes:
+        - name: bitbucket-home
+          persistentVolumeClaim:
+            claimName: {{ $app }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1

@@ -1,0 +1,31 @@
+{{- $app := printf "%s-bitbucket" .Values.resource.name -}}
+{{- $spec := dict }}
+{{- $_ := merge $spec .Values.resource.spec .Values.default -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $app }}
+  labels:
+    app: {{ $app }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+data:
+{{ if $spec.sso }}
+  BITBUCKET_CROWD_SSO: "true"
+{{ end }}
+{{ if $spec.ingress.tls }}
+  SERVER_SECURE: "true"
+  SERVER_SCHEME: "https"
+  SERVER_PROXY_PORT: "443"
+{{ else }}
+  SERVER_PROXY_PORT: "80"
+{{ end }}
+  SERVER_PROXY_NAME: {{ $spec.ingress.hostname }}
+  CATALINA_OPTS: >-
+    -XX:+UseTransparentHugePages -XX:+AlwaysPreTouch
+  JAVA_OPTS: >-
+    -XX:+UseTransparentHugePages -XX:+AlwaysPreTouch
+{{ if $spec.elasticsearch }}
+  BITBUCKET_EMBEDDED_SEARCH: "true"
+{{ end }}

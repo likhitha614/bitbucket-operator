@@ -7,19 +7,25 @@
 apiVersion: app.coreos.com/v1alpha1
 kind: ClusterServiceVersion-v1
 metadata:
-  name: example-app-operator.v0.0.1
+  name: bitbucket-operator.YOUR_VERSION_HERE
   namespace: YOUR_NAMESPACE_HERE
 spec:
   install: 
     strategy: deployment
     spec:
       permissions:
-      - serviceAccountName: example-app-operator
+      - serviceAccountName: bitbucket-operator
         rules:
         - apiGroups:
-          - example.com
+          - app.stei.gr
           resources:
-          - example-apps
+          - bitbuckets
+          verbs:
+          - "*"
+        - apiGroups:
+          - database.stei.gr
+          resources:
+          - "*"
           verbs:
           - "*"
         - apiGroups:
@@ -27,7 +33,11 @@ spec:
           resources:
           - pods
           - events
+          - secrets
+          - services
+          - configmaps
           - namespaces
+          - persistentvolumeclaims
           verbs:
           - "*"
         - apiGroups:
@@ -41,37 +51,38 @@ spec:
           - extensions
           resources:
           - deployments
+          - ingresses
           verbs:
           - "*"
       deployments: 
-      - name: example-app-operator
+      - name: bitbucket-operator
         spec:
           replicas: 1
           selector:
             matchLabels:
-              app: example-app-operator
+              app: bitbucket-operator
           template:
             metadata:
               labels:
-                app: example-app-operator
+                app: bitbucket-operator
             spec:
               containers:
                 - name: sao
-                  image: YOUR_REPO_IMAGE_HERE
+                  image: YOUR_REPO_IMAGE_HERE:YOUR_VERSION_HERE
                   ports:
                     - containerPort: 8080
                       protocol: TCP
                   imagePullPolicy: Always
               restartPolicy: Always
               terminationGracePeriodSeconds: 5
-              serviceAccountName: example-app-operator
-              serviceAccount: example-app-operator
+              serviceAccountName: bitbucket-operator
+              serviceAccount: bitbucket-operator
   customresourcedefinitions:
     owned:
-      - description: Represents a cluster of example apps
-        displayName: Example App
-        kind: ExampleApp
-        name: example-apps.example.com
+      - description: Bitbucket
+        displayName: Atlassian Bitbucket
+        kind: Bitbucket
+        name: bitbuckets.app.stei.gr
         version: v1alpha1
         resources:
           - kind: Deployment
@@ -80,12 +91,16 @@ spec:
             version: v1beta2
           - kind: Pod
             version: v1
-        specDescriptors:
-          - description: The desired number of member Pods for the deployment.
-            displayName: Size
-            path: size
-            x-descriptors:
-              - 'urn:alm:descriptor:com.tectonic.ui:podCount'
+          - kind: Ingress
+            version: v1beta1
+          - kind: Service
+            version: v1
+          - kind: ConfigMap
+            version: v1
+          - kind: Secret
+            version: v1
+          - kind: PersistentVolumeClaim
+            version: v1
         statusDescriptors:
           - description: The current status of the application.
             displayName: Status
@@ -98,18 +113,34 @@ spec:
             x-descriptors:
               - 'urn:alm:descriptor:io.kubernetes.phase:reason'
   keywords:
-    - example
-    - app
-  displayName: Example Application
+    - bitbucket
+    - atlassian
+    - git
+    - sourcecode
+    - scm
+  displayName: Atlassian Bitbucket
   provider:
-    name: Example Corp
-    url: www.example.com
+    name: steigr
+    url: stei.gr/operator/bitbucket
+  icon:
+    - base64data: >-
+        iVBORw0KGgoAAAANSUhEUgAAACgAAAAkCAYAAAD7PHgWAAAABGdBTUEAALGPC/xhBQAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH4gQEADM3oWzhgQAABDFJREFUWMPNmD1vHFUUhp/zzqxNCqLEgEmiRESJbQJRJAqQaPkBiB8AFVBR0tBYojEdDT0SEh0NBQ0V9KGgQpGJP3DsBH8mjh2U+GP3Hop7Z3d2PV7PWojNkUdre+7MffY95z1ndm1qxn8F3uP5jJ8FTA6bok9MCbg3bIo+sShgdtgUfWJWwB0gDJukIloF4BywN2yaingKzAlYAh4Pm6YiHgH3BKyl43mLVWBDRPWWh01TEcsYTwQcAgvDpqmIBZxWnv6Y+9+2tRprHIB5gAJwkejkF2pus0Oskbqh5sHBlRDCmZrrn0la8hLg/bRpXcDbwCfE8uhPluHb61vjj7c2fwzN1qR7wL3/NWbsZo3GKu5twA2ik1+tCXiBqPjW3en+ORv98A4YF0KzORZagRBa+AmEZrbhsGmA0v92GczJl9JxYpiBTFdNOmuZkITZiYW4kjdGdpXnKL2XQ2Id1o1zwMRJi8Y+u487mGxSUkMmTOnoD7mw/2DlIG+MoLlOiuYHAMyBNwCuf3V8ujzA/k8/YKapNlgdQLN5zp1n5ruJdooh9sL9ASBvAsr6lJPjnP/o0zMmTZgJkyGJspIVcWCwYBKfm3UBLhNrsW5MAGf7L3HcfUyyK1KqP5VAq5XcxWylgC8DbgDrAwBe5gTXG4aZXTTpFZOl1JZAzY6m22zTpPUqwB1gZQDAMeBa3xUGZrpqphctKaYCNB0FLAnS4L6yfEdZ1gH0eOKAwWbyKHDjuJM3vo7FmRycKanXButRUh0VFw9/u72X5XkHcG7a0vgbeCbfzEZhauaoU3bWtrk8cdlket1KqnXXYreKSck5bt1i7/v43vOe+y4QlRypCfhuc88/DiEcXvtynzgpAh7i68PV7YZJbxuOOUhOQJiDyREChyAnTY0msOhm7c8gvYCFk1+uqyDwrQGOkX5SNjw1aZncQRBIIB7PhyOgPDGzZZxjAdeJbq4LiJkZUtrYCYKomJAKkHQeLykWlRROAMwdubbMtFZ+JOsFLJz8Zl3ABIlkHZC2YnFjUwGS0otHFQtVk5Lm/kBZvl0G7Grl7uwz2EwuQR4t+K6GXOqB5YbdY5ylS9cnn+V5xwJtwLvTVrSiQWZyV8is3Xx7R1oHvsfR5dajbP7B/J/+zvuvHZviAvAQaJxCxrgRpfRS1J7a9RnT25NyFIAFk/HLB50cVwEWTn7pdKk2kGLRp3EVUh0eMRIlR8M/hi053T21CnAN2DwtYAEpKapYOJoEcoyjBY8wW+19vql63nnMYDO5GrJypBW1ZkfGnkl/S9lDy7o1q1Jwj1M6uUrJokfG2kspL1pLUjI4yO2vrDH61EPrRAUBfuc/+MbrWEdb6cmm055mQ3M/jF0c7b5H703T4B8HZoC3AK/B0pczzWYPrRYh/m4eWml2t8yDb7j7F8AfG9+Md138L2wQi4JhHAC1AAAAJXRFWHRkYXRlOmNyZWF0ZQAyMDE4LTA0LTAzVDIyOjUxOjU1KzAyOjAwrOyfDQAAACV0RVh0ZGF0ZTptb2RpZnkAMjAxOC0wNC0wM1QyMjo1MTo1NSswMjowMN2xJ7EAAAAASUVORK5CYII=
+  links:
+    - name: Project Homepage
+      url: https://atlassian.com/software/bitbucket
+    - name: Documentation
+      url: https://confluence.atlassian.com/bitbucketserver/bitbucket-server-documentation-776639749.html
+    - name: Community Forum
+      url: https://community.atlassian.com/t5/Bitbucket/ct-p/bitbucket
+    - name: Bitbucket Blog
+      url: https://www.atlassian.com/blog/bitbucket
   maturity: alpha
-  version: 0.0.1
+  version: YOUR_SEM_VERSION_HERE
   maintainers:
-    - email: corp@example.com
-      name: Some Corp
-  description: Main enterprise application providing business critical features with high availabilty and no manual intervention.
+    - email: me@stei.gr
+      name: steigr
+  description: Atlassian Bitbucket
   labels:
-    alm-owner-enterprise-app: example-app-operator
-    alm-status-descriptors: example-app-operator.v0.0.1
+    alm-owner-enterprise-app: bitbucket-operator
+    alm-status-descriptors: bitbucket-operator.YOUR_VERSION_HERE
+

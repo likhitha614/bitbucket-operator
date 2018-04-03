@@ -1,1 +1,24 @@
-image: nginx
+default:
+  storage:
+    size: 2Gi
+  resources:
+    limits:
+      memory: 3000Mi
+      cpu: 2000m
+    requests:
+      memory: 500Mi
+      cpu: 100m
+  image:
+    name: docker.io/blacklabelops/bitbucket
+    tag: latest
+    pullPolicy: Always
+  ingress:
+    enabled: true
+    hostname: bitbucket.example.com
+    startup: passthrough
+    annotations: {}
+  database:
+    type: postgres
+    password: changeme
+  sso: true
+  elasticsearch: true

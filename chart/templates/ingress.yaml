@@ -1,0 +1,81 @@
+{{- $app := printf "%s-bitbucket" .Values.resource.name -}}
+{{- $spec := dict }}
+{{- $_ := merge $spec .Values.resource.spec .Values.default -}}
+{{ if $spec.ingress.enabled }}
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: {{ $app }}
+  labels:
+    app: {{ $app }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+{{ if $spec.ingress.annotations }}
+  annotations:
+{{ toYaml $spec.ingress.annotations | indent 4 }}
+{{ end }}
+spec:
+{{ if $spec.ingress.tls }}
+  tls:
+    - hosts:
+        - {{ $spec.ingress.hostname }}
+      secretName: {{ $spec.ingress.hostname }}-tls
+{{ end }}
+  rules:
+  - host: {{ $spec.ingress.hostname }}
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: {{ $app }}
+          servicePort: http
+{{ end }}
+{{ if eq $spec.ingress.startup "passthrough" }}
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: {{ $app }}-passthrough
+  labels:
+    app: {{ $app }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+  annotations:
+    ingress.kubernetes.io/configuration-snippet: proxy_intercept_errors off;
+{{ if $spec.ingress.annotations }}
+{{ toYaml $spec.ingress.annotations | indent 4 }}
+{{ end }}
+spec:
+{{ if $spec.ingress.tls }}
+  tls:
+    - hosts:
+        - {{ $spec.ingress.hostname }}
+      secretName: {{ $spec.ingress.hostname }}-tls
+{{ end }}
+  rules:
+  - host: {{ $spec.ingress.hostname }}
+    http:
+      paths:
+      - path: /startup.jsp
+        backend:
+          serviceName: {{ $app }}
+          servicePort: http
+      - path: /secure/errors.jsp
+        backend:
+          serviceName: {{ $app }}
+          servicePort: http
+      - path: /secure/SetupDatabase.jspa
+        backend:
+          serviceName: {{ $app }}
+          servicePort: http
+      - path: /secure/SetupLicense.jspa
+        backend:
+          serviceName: {{ $app }}
+          servicePort: http
+      - path: /secure/SetupApplicationProperties.jspa
+        backend:
+          serviceName: {{ $app }}
+          servicePort: http
+{{ end }}
